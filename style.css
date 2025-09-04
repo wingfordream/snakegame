@@ -122,6 +122,21 @@ h1 {
     z-index: 1;
 }
 
+.recording-status {
+    color: #ff4444;
+    font-weight: bold;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    text-shadow: 2px 2px 0px #000000;
+    animation: blink 1s infinite;
+    margin-top: 5px;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
 #score, #high-score {
     color: #e74c3c;
     text-shadow: 1px 1px 0px #c0392b;
@@ -251,6 +266,135 @@ h1 {
     background-color: #9b59b6;
     color: #ecf0f1;
     border: none;
+}
+
+.recording-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+}
+
+.recording-control label {
+    font-weight: normal;
+    color: #ecf0f1;
+    font-size: 10px;
+    text-shadow: 1px 1px 0px #2c3e50;
+    font-family: 'Press Start 2P', monospace;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.recording-control input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    accent-color: #4ecdc4;
+    cursor: pointer;
+}
+
+.recording-control .format-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+}
+
+.recording-control .format-control label {
+    font-weight: normal;
+    color: #ecf0f1;
+    font-size: 10px;
+    text-shadow: 1px 1px 0px #2c3e50;
+    font-family: 'Press Start 2P', monospace;
+}
+
+.recording-control .format-control select {
+    padding: 6px 8px;
+    border: 2px solid #ecf0f1;
+    background-color: #9b59b6;
+    color: #ecf0f1;
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: none;
+    box-shadow: 
+        inset 1px 1px 0px #bb8fce,
+        inset -1px -1px 0px #7d3c98,
+        2px 2px 0px #2c3e50;
+    text-shadow: 1px 1px 0px #7d3c98;
+}
+
+.recording-control .format-control select:hover {
+    background: #bb8fce;
+    box-shadow: 
+        inset 1px 1px 0px #d7bde2,
+        inset -1px -1px 0px #9b59b6,
+        2px 2px 0px #2c3e50;
+}
+
+.recording-control .format-control select:focus {
+    outline: none;
+    background: #7d3c98;
+    box-shadow: 
+        inset 1px 1px 0px #9b59b6,
+        inset -1px -1px 0px #633974,
+        2px 2px 0px #2c3e50;
+}
+
+.recording-control .format-control select option {
+    background-color: #9b59b6;
+    color: #ecf0f1;
+    border: none;
+}
+
+.recording-control button {
+    padding: 8px 12px;
+    border: 2px solid #ecf0f1;
+    background-color: #4ecdc4;
+    color: #2c3e50;
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: none;
+    box-shadow: 
+        inset 1px 1px 0px #7dd3c0,
+        inset -1px -1px 0px #26a69a,
+        2px 2px 0px #2c3e50;
+    text-shadow: none;
+    font-weight: bold;
+}
+
+.recording-control button:hover {
+    background: #7dd3c0;
+    box-shadow: 
+        inset 1px 1px 0px #b2dfdb,
+        inset -1px -1px 0px #4ecdc4,
+        2px 2px 0px #2c3e50;
+}
+
+.recording-control button:active {
+    box-shadow: 
+        inset 1px 1px 0px #26a69a,
+        inset -1px -1px 0px #00695c,
+        1px 1px 0px #2c3e50;
+    transform: translate(1px, 1px);
+}
+
+.recording-control button.recording {
+    background: #e74c3c;
+    box-shadow: 
+        inset 1px 1px 0px #f1948a,
+        inset -1px -1px 0px #c0392b,
+        2px 2px 0px #2c3e50;
+}
+
+.recording-control button.recording:hover {
+    background: #f1948a;
+    box-shadow: 
+        inset 1px 1px 0px #fadbd8,
+        inset -1px -1px 0px #e74c3c,
+        2px 2px 0px #2c3e50;
 }
 
 #pauseBtn {

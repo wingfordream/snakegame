@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Snake Game</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 </head>
 <body>
     <div class="game-container">
         <h1>🐍 RETRO SNAKE 🐍</h1>
         <div class="game-info">
             <div class="score">Score: <span id="score">0</span></div>
-        <div class="high-score">High Score: <span id="high-score">0</span></div>
+            <div class="high-score">High Score: <span id="high-score">0</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div class="game-controls">
@@ -25,7 +26,21 @@
                     <option value="150" selected>NORMAL</option>
                     <option value="100">FAST</option>
                     <option value="50">EXTREME</option>
+                    <option value="25">ULTRA</option>
                 </select>
+            </div>
+            <div class="recording-control">
+                <label>
+                    <input type="checkbox" id="autoRecordCheckbox"> AUTO RECORD
+                </label>
+                <div class="format-control">
+                    <label for="formatSelect">FORMAT:</label>
+                    <select id="formatSelect">
+                        <option value="webm">WebM</option>
+                        <option value="gif">GIF</option>
+                    </select>
+                </div>
+                <button id="recordBtn">START RECORD</button>
             </div>
         </div>
         <div class="instructions">

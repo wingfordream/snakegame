@@ -17,6 +17,13 @@ let gameState = {
 // Game loop variable
 let gameInterval = null;
 
+// Screen recording variables
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let gifFrames = [];
+let gifRecordingInterval = null;
+
 // Snake initial state
 let snake = {
     body: [{x: 10, y: 10}],
@@ -36,6 +43,9 @@ const startBtn = document.getElementById('startBtn');
 const resetBtn = document.getElementById('resetBtn');
 const autoBtn = document.getElementById('autoBtn');
 const speedSelect = document.getElementById('speedSelect');
+const autoRecordCheckbox = document.getElementById('autoRecordCheckbox');
+const recordBtn = document.getElementById('recordBtn');
+const formatSelect = document.getElementById('formatSelect');
 
 // Initialize game
 function initGame() {
@@ -60,6 +70,219 @@ function initGame() {
     
     // Draw initial state
     draw();
+}
+
+// Start screen recording
+function startRecording() {
+    if (isRecording) return;
+    
+    const format = formatSelect.value;
+    isRecording = true;
+    
+    if (format === 'gif') {
+        startGifRecording();
+    } else {
+        startWebmRecording();
+    }
+}
+
+function startWebmRecording() {
+    try {
+        const stream = canvas.captureStream(30); // 30 FPS
+        mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'video/webm;codecs=vp9'
+        });
+        
+        recordedChunks = [];
+        
+        mediaRecorder.ondataavailable = function(event) {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(recordedChunks, {
+                type: 'video/webm'
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `snake-game-${new Date().getTime()}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+        
+        mediaRecorder.start();
+        console.log('WebM recording started');
+    } catch (error) {
+        console.error('Error starting WebM recording:', error);
+        isRecording = false;
+    }
+}
+
+function startGifRecording() {
+    try {
+        gifFrames = [];
+        
+        // Capture frames every 100ms (10 FPS for GIF)
+        gifRecordingInterval = setInterval(() => {
+            if (isRecording) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                gifFrames.push({
+                    data: imageData,
+                    delay: 100
+                });
+            }
+        }, 100);
+        
+        console.log('GIF recording started');
+    } catch (error) {
+        console.error('Error starting GIF recording:', error);
+        isRecording = false;
+    }
+}
+
+// Stop screen recording
+function stopRecording() {
+    if (!isRecording) return;
+    
+    const format = formatSelect.value;
+    
+    if (format === 'gif') {
+        stopGifRecording();
+    } else {
+        stopWebmRecording();
+    }
+    
+    isRecording = false;
+    console.log('Recording stopped');
+}
+
+function stopWebmRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+}
+
+function stopGifRecording() {
+    if (gifRecordingInterval) {
+        clearInterval(gifRecordingInterval);
+        gifRecordingInterval = null;
+    }
+    
+    if (gifFrames.length > 0) {
+        generateGif();
+    }
+}
+
+function generateGif() {
+    console.log('Generating GIF with', gifFrames.length, 'frames');
+    
+    if (gifFrames.length === 0) {
+        console.error('No frames to generate GIF');
+        return;
+    }
+    
+    try {
+        // Check if omggif is loaded
+        if (typeof GifWriter === 'undefined') {
+            console.error('omggif library not loaded');
+            return;
+        }
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const delay = 10; // 100ms delay between frames
+        
+        // Create GIF buffer
+        const buf = new Uint8Array(width * height * gifFrames.length * 5); // Rough estimate
+        const gif = new GifWriter(buf, width, height, { loop: 0 });
+        
+        console.log('Processing frames for GIF...');
+        
+        // Process each frame
+        gifFrames.forEach((frame, index) => {
+            console.log(`Processing frame ${index + 1}/${gifFrames.length}`);
+            
+            // Convert RGBA to indexed color palette
+            const imageData = frame.data;
+            const pixels = new Uint8Array(width * height);
+            const palette = [];
+            const colorMap = new Map();
+            
+            // Simple color quantization - reduce to 256 colors max
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const r = Math.floor(imageData.data[i] / 8) * 8;
+                const g = Math.floor(imageData.data[i + 1] / 8) * 8;
+                const b = Math.floor(imageData.data[i + 2] / 8) * 8;
+                const colorKey = `${r},${g},${b}`;
+                
+                let colorIndex;
+                if (colorMap.has(colorKey)) {
+                    colorIndex = colorMap.get(colorKey);
+                } else if (palette.length < 256) {
+                    colorIndex = palette.length;
+                    palette.push([r, g, b]);
+                    colorMap.set(colorKey, colorIndex);
+                } else {
+                    // Find closest color if palette is full
+                    colorIndex = 0;
+                    let minDist = Infinity;
+                    for (let j = 0; j < palette.length; j++) {
+                        const dist = Math.abs(r - palette[j][0]) + Math.abs(g - palette[j][1]) + Math.abs(b - palette[j][2]);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            colorIndex = j;
+                        }
+                    }
+                }
+                
+                pixels[i / 4] = colorIndex;
+            }
+            
+            // Ensure palette length is power of 2 and between 2-256
+             let paletteSize = 2;
+             while (paletteSize < palette.length && paletteSize < 256) {
+                 paletteSize *= 2;
+             }
+             
+             // Pad palette to the required power of 2 size
+             while (palette.length < paletteSize) {
+                 palette.push([0, 0, 0]);
+             }
+            
+            // Add frame to GIF
+            gif.addFrame(0, 0, width, height, pixels, {
+                palette: palette.flat(),
+                delay: delay
+            });
+        });
+        
+        // Get the actual GIF data
+        const gifData = buf.slice(0, gif.end());
+        
+        // Create and download the GIF
+        const blob = new Blob([gifData], { type: 'image/gif' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `snake-game-${new Date().getTime()}.gif`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('GIF generated and downloaded successfully');
+        
+    } catch (error) {
+        console.error('Error generating GIF:', error);
+    }
 }
 
 // Generate food
@@ -272,6 +495,11 @@ function gameOver() {
     gameState.gameOver = true;
     stopGameLoop();
     
+    // Stop recording when game ends (both auto and manual)
+    if (isRecording) {
+        stopRecording();
+    }
+    
     // Update high score
     if (gameState.score > gameState.highScore) {
         gameState.highScore = gameState.score;
@@ -385,6 +613,15 @@ function updateButtons() {
         autoBtn.textContent = 'AUTO';
         autoBtn.style.backgroundColor = '';
     }
+    
+    // Update record button
+    if (isRecording) {
+        recordBtn.textContent = 'STOP RECORD';
+        recordBtn.style.backgroundColor = '#ff6b6b';
+    } else {
+        recordBtn.textContent = 'START RECORD';
+        recordBtn.style.backgroundColor = '#4ecdc4';
+    }
 }
 
 // Start/resume game
@@ -402,6 +639,10 @@ function startGame() {
         gameState.running = true;
         snake.nextDirection = {x: 1, y: 0};
         startGameLoop();
+        // Start recording if auto record is enabled
+        if (autoRecordCheckbox.checked) {
+            startRecording();
+        }
     } else {
         gameState.running = true;
         // If snake has no direction, set default direction
@@ -409,6 +650,10 @@ function startGame() {
             snake.nextDirection = {x: 1, y: 0};
         }
         startGameLoop();
+        // Start recording if auto record is enabled
+        if (autoRecordCheckbox.checked) {
+            startRecording();
+        }
     }
     updateButtons();
 }
@@ -537,6 +782,11 @@ function resetGame() {
     // Stop game loop
     stopGameLoop();
     
+    // Stop recording if active
+    if (isRecording) {
+        stopRecording();
+    }
+    
     // Save auto mode state
     const wasAutoMode = gameState.autoMode;
     
@@ -561,10 +811,21 @@ function resetGame() {
     draw();
 }
 
+// Toggle manual recording
+function toggleRecording() {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+    updateButtons();
+}
+
 // Event listeners
 startBtn.addEventListener('click', toggleStartPause);
 resetBtn.addEventListener('click', resetGame);
 autoBtn.addEventListener('click', toggleAutoMode);
+recordBtn.addEventListener('click', toggleRecording);
 speedSelect.addEventListener('change', handleSpeedChange);
 document.addEventListener('keydown', handleKeyPress);
 
