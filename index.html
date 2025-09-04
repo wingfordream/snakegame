@@ -3,36 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>贪吃蛇游戏</title>
+    <title>Snake Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
-        <h1>贪吃蛇游戏</h1>
+        <h1>🐍 RETRO SNAKE 🐍</h1>
         <div class="game-info">
-            <div class="score">得分: <span id="score">0</span></div>
-            <div class="high-score">最高分: <span id="high-score">0</span></div>
+            <div class="score">Score: <span id="score">0</span></div>
+        <div class="high-score">High Score: <span id="high-score">0</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div class="game-controls">
-            <button id="startBtn">开始游戏</button>
-            <button id="pauseBtn">暂停</button>
-            <button id="autoBtn">自动模式</button>
+            <button id="startBtn">START</button>
+            <button id="resetBtn">RESET</button>
+            <button id="autoBtn">AUTO</button>
             <div class="speed-control">
-                <label for="speedSelect">速度:</label>
+                <label for="speedSelect">SPEED:</label>
                 <select id="speedSelect">
-                    <option value="250">慢速</option>
-                    <option value="150" selected>正常</option>
-                    <option value="100">快速</option>
-                    <option value="50">极速</option>
+                    <option value="250">SLOW</option>
+                    <option value="150" selected>NORMAL</option>
+                    <option value="100">FAST</option>
+                    <option value="50">EXTREME</option>
                 </select>
             </div>
         </div>
         <div class="instructions">
-            <h3>游戏说明:</h3>
-            <p>使用方向键⬆️⬇️⬅️➡️或者wsad控制蛇的移动</p>
-            <p>吃到红色食物可以增长身体和得分</p>
-            <p>避免撞到墙壁或自己的身体</p>
+            <h3>[ GAME INSTRUCTIONS ]</h3>
+            <p>► Use ARROW KEYS or WASD to control the snake</p>
+            <p>► Eat RED FOOD to grow and score points</p>
+            <p>► Avoid walls and your own body</p>
+            <p>► Press SPACE to pause/resume</p>
         </div>
     </div>
     <script src="script.js"></script>
