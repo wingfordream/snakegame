@@ -8,10 +8,10 @@ let gameState = {
     running: false,
     paused: false,
     gameOver: false,
-    autoMode: false,
+    autoMode: true,
     score: 0,
     highScore: localStorage.getItem('snakeHighScore') || 0,
-    gameSpeed: 150
+    gameSpeed: 25
 };
 
 // Game loop variable
@@ -21,8 +21,7 @@ let gameInterval = null;
 let mediaRecorder = null;
 let recordedChunks = [];
 let isRecording = false;
-let gifFrames = [];
-let gifRecordingInterval = null;
+// GIF recording variables removed - only WebM supported
 
 // Snake initial state
 let snake = {
@@ -45,7 +44,7 @@ const autoBtn = document.getElementById('autoBtn');
 const speedSelect = document.getElementById('speedSelect');
 const autoRecordCheckbox = document.getElementById('autoRecordCheckbox');
 const recordBtn = document.getElementById('recordBtn');
-const formatSelect = document.getElementById('formatSelect');
+// Format selector removed - only WebM supported
 
 // Initialize game
 function initGame() {
@@ -58,8 +57,12 @@ function initGame() {
     gameState.running = false;
     gameState.paused = false;
     gameState.gameOver = false;
-    gameState.autoMode = false;
+    // Keep autoMode as true (default enabled)
+    gameState.autoMode = true;
     gameState.score = 0;
+    
+    // Set speed selector to ULTRA (25ms)
+    speedSelect.value = '25';
     
     // Generate new food
     generateFood();
@@ -76,14 +79,8 @@ function initGame() {
 function startRecording() {
     if (isRecording) return;
     
-    const format = formatSelect.value;
     isRecording = true;
-    
-    if (format === 'gif') {
-        startGifRecording();
-    } else {
-        startWebmRecording();
-    }
+    startWebmRecording();
 }
 
 function startWebmRecording() {
@@ -106,6 +103,7 @@ function startWebmRecording() {
                 type: 'video/webm'
             });
             
+            // Download WebM directly
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
@@ -125,39 +123,11 @@ function startWebmRecording() {
     }
 }
 
-function startGifRecording() {
-    try {
-        gifFrames = [];
-        
-        // Capture frames every 100ms (10 FPS for GIF)
-        gifRecordingInterval = setInterval(() => {
-            if (isRecording) {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                gifFrames.push({
-                    data: imageData,
-                    delay: 100
-                });
-            }
-        }, 100);
-        
-        console.log('GIF recording started');
-    } catch (error) {
-        console.error('Error starting GIF recording:', error);
-        isRecording = false;
-    }
-}
-
 // Stop screen recording
 function stopRecording() {
     if (!isRecording) return;
     
-    const format = formatSelect.value;
-    
-    if (format === 'gif') {
-        stopGifRecording();
-    } else {
-        stopWebmRecording();
-    }
+    stopWebmRecording();
     
     isRecording = false;
     console.log('Recording stopped');
@@ -166,122 +136,6 @@ function stopRecording() {
 function stopWebmRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-    }
-}
-
-function stopGifRecording() {
-    if (gifRecordingInterval) {
-        clearInterval(gifRecordingInterval);
-        gifRecordingInterval = null;
-    }
-    
-    if (gifFrames.length > 0) {
-        generateGif();
-    }
-}
-
-function generateGif() {
-    console.log('Generating GIF with', gifFrames.length, 'frames');
-    
-    if (gifFrames.length === 0) {
-        console.error('No frames to generate GIF');
-        return;
-    }
-    
-    try {
-        // Check if omggif is loaded
-        if (typeof GifWriter === 'undefined') {
-            console.error('omggif library not loaded');
-            return;
-        }
-        
-        const width = canvas.width;
-        const height = canvas.height;
-        const delay = 10; // 100ms delay between frames
-        
-        // Create GIF buffer
-        const buf = new Uint8Array(width * height * gifFrames.length * 5); // Rough estimate
-        const gif = new GifWriter(buf, width, height, { loop: 0 });
-        
-        console.log('Processing frames for GIF...');
-        
-        // Process each frame
-        gifFrames.forEach((frame, index) => {
-            console.log(`Processing frame ${index + 1}/${gifFrames.length}`);
-            
-            // Convert RGBA to indexed color palette
-            const imageData = frame.data;
-            const pixels = new Uint8Array(width * height);
-            const palette = [];
-            const colorMap = new Map();
-            
-            // Simple color quantization - reduce to 256 colors max
-            for (let i = 0; i < imageData.data.length; i += 4) {
-                const r = Math.floor(imageData.data[i] / 8) * 8;
-                const g = Math.floor(imageData.data[i + 1] / 8) * 8;
-                const b = Math.floor(imageData.data[i + 2] / 8) * 8;
-                const colorKey = `${r},${g},${b}`;
-                
-                let colorIndex;
-                if (colorMap.has(colorKey)) {
-                    colorIndex = colorMap.get(colorKey);
-                } else if (palette.length < 256) {
-                    colorIndex = palette.length;
-                    palette.push([r, g, b]);
-                    colorMap.set(colorKey, colorIndex);
-                } else {
-                    // Find closest color if palette is full
-                    colorIndex = 0;
-                    let minDist = Infinity;
-                    for (let j = 0; j < palette.length; j++) {
-                        const dist = Math.abs(r - palette[j][0]) + Math.abs(g - palette[j][1]) + Math.abs(b - palette[j][2]);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            colorIndex = j;
-                        }
-                    }
-                }
-                
-                pixels[i / 4] = colorIndex;
-            }
-            
-            // Ensure palette length is power of 2 and between 2-256
-             let paletteSize = 2;
-             while (paletteSize < palette.length && paletteSize < 256) {
-                 paletteSize *= 2;
-             }
-             
-             // Pad palette to the required power of 2 size
-             while (palette.length < paletteSize) {
-                 palette.push([0, 0, 0]);
-             }
-            
-            // Add frame to GIF
-            gif.addFrame(0, 0, width, height, pixels, {
-                palette: palette.flat(),
-                delay: delay
-            });
-        });
-        
-        // Get the actual GIF data
-        const gifData = buf.slice(0, gif.end());
-        
-        // Create and download the GIF
-        const blob = new Blob([gifData], { type: 'image/gif' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `snake-game-${new Date().getTime()}.gif`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        console.log('GIF generated and downloaded successfully');
-        
-    } catch (error) {
-        console.error('Error generating GIF:', error);
     }
 }
 
@@ -360,46 +214,202 @@ function calculateReachableSpace(startPos) {
     return visited.size;
 }
 
+// A* pathfinding algorithm
+function findPathAStar(start, target) {
+    const openSet = [{pos: start, g: 0, h: manhattanDistance(start, target), f: manhattanDistance(start, target), parent: null}];
+    const closedSet = new Set();
+    const directions = [{x: 0, y: -1}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}];
+    
+    while (openSet.length > 0) {
+        // Find node with lowest f score
+        openSet.sort((a, b) => a.f - b.f);
+        const current = openSet.shift();
+        const currentKey = `${current.pos.x},${current.pos.y}`;
+        
+        if (closedSet.has(currentKey)) continue;
+        closedSet.add(currentKey);
+        
+        // Reached target
+        if (current.pos.x === target.x && current.pos.y === target.y) {
+            const path = [];
+            let node = current;
+            while (node.parent) {
+                const dir = {x: node.pos.x - node.parent.pos.x, y: node.pos.y - node.parent.pos.y};
+                path.unshift(dir);
+                node = node.parent;
+            }
+            return path;
+        }
+        
+        // Explore neighbors
+        for (let dir of directions) {
+            const newPos = {x: current.pos.x + dir.x, y: current.pos.y + dir.y};
+            const newKey = `${newPos.x},${newPos.y}`;
+            
+            if (closedSet.has(newKey) || checkCollision(newPos)) continue;
+            
+            const g = current.g + 1;
+            const h = manhattanDistance(newPos, target);
+            const f = g + h;
+            
+            // Check if this path is better
+            const existing = openSet.find(node => node.pos.x === newPos.x && node.pos.y === newPos.y);
+            if (!existing || g < existing.g) {
+                if (existing) {
+                    existing.g = g;
+                    existing.f = f;
+                    existing.parent = current;
+                } else {
+                    openSet.push({pos: newPos, g, h, f, parent: current});
+                }
+            }
+        }
+    }
+    
+    return null; // No path found
+}
+
+// Manhattan distance heuristic
+function manhattanDistance(pos1, pos2) {
+    return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
+}
+
+// Simulate eating food and check survival space
+function simulateEatAndCheckSurvival(path) {
+    if (!path || path.length === 0) return false;
+    
+    // Simulate snake movement along the path
+    const simulatedSnake = {
+        body: [...snake.body.map(segment => ({...segment}))],
+        direction: {...snake.direction}
+    };
+    
+    // Move snake along the path
+    for (let move of path) {
+        const head = simulatedSnake.body[0];
+        const newHead = {x: head.x + move.x, y: head.y + move.y};
+        
+        simulatedSnake.body.unshift(newHead);
+        // Don't remove tail when eating food (snake grows)
+        if (newHead.x !== food.x || newHead.y !== food.y) {
+            simulatedSnake.body.pop();
+        }
+    }
+    
+    // Check survival space after eating
+    const newHead = simulatedSnake.body[0];
+    const survivalSpace = calculateReachableSpaceWithSnake(newHead, simulatedSnake.body);
+    
+    // Need enough space for the grown snake
+    return survivalSpace >= simulatedSnake.body.length * 1.2;
+}
+
+// Calculate reachable space considering a specific snake body
+function calculateReachableSpaceWithSnake(startPos, snakeBody) {
+    const visited = new Set();
+    const queue = [startPos];
+    visited.add(`${startPos.x},${startPos.y}`);
+    
+    const directions = [{x: 0, y: -1}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}];
+    
+    while (queue.length > 0) {
+        const pos = queue.shift();
+        
+        for (let dir of directions) {
+            const newPos = {x: pos.x + dir.x, y: pos.y + dir.y};
+            const key = `${newPos.x},${newPos.y}`;
+            
+            if (!visited.has(key) && !checkCollisionWithSnake(newPos, snakeBody)) {
+                visited.add(key);
+                queue.push(newPos);
+            }
+        }
+    }
+    
+    return visited.size;
+}
+
+// Check collision with specific snake body
+function checkCollisionWithSnake(pos, snakeBody) {
+    // Check boundaries
+    if (pos.x < 0 || pos.x >= GRID_COUNT || pos.y < 0 || pos.y >= GRID_COUNT) {
+        return true;
+    }
+    
+    // Check snake body collision
+    return snakeBody.some(segment => segment.x === pos.x && segment.y === pos.y);
+}
+
+// Hamiltonian Cycle strategy - follow a predetermined safe path
+function getHamiltonianDirection() {
+    const head = snake.body[0];
+    const directions = [{x: 0, y: -1}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}];
+    
+    // Simple Hamiltonian-like pattern: try to follow edges and create cycles
+    // Priority: Right -> Down -> Left -> Up (clockwise)
+    const priorityDirs = [{x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 0, y: -1}];
+    
+    for (let dir of priorityDirs) {
+        // Skip reverse direction
+        if (dir.x === -snake.direction.x && dir.y === -snake.direction.y) continue;
+        
+        const testPos = {x: head.x + dir.x, y: head.y + dir.y};
+        if (!checkCollision(testPos)) {
+            const space = calculateReachableSpace(testPos);
+            // Only choose if it maintains good survival space
+            if (space >= snake.body.length * 1.5) {
+                return dir;
+            }
+        }
+    }
+    
+    // Fallback to any safe direction
+    for (let dir of directions) {
+        if (dir.x === -snake.direction.x && dir.y === -snake.direction.y) continue;
+        
+        const testPos = {x: head.x + dir.x, y: head.y + dir.y};
+        if (!checkCollision(testPos)) {
+            return dir;
+        }
+    }
+    
+    return snake.direction;
+}
+
 function getAutoDirection() {
     const head = snake.body[0];
     const currentDir = snake.direction;
     
-    // First try to find path to food using BFS
-    const pathToFood = findPathBFS(head, food);
+    // Step 1: Use A* to find optimal path to food
+    const pathToFood = findPathAStar(head, food);
     
     if (pathToFood && pathToFood.length > 0) {
         const nextMove = pathToFood[0];
         
         // Check if this move is safe (not reverse)
         if (!(nextMove.x === -currentDir.x && nextMove.y === -currentDir.y)) {
-            // Additional check: ensure enough survival space after move
-            const nextPos = {x: head.x + nextMove.x, y: head.y + nextMove.y};
-            const spaceAfterMove = calculateReachableSpace(nextPos);
-            
-            // If reachable space after move is large enough (at least 1.5x snake length), execute move
-            if (spaceAfterMove >= snake.body.length * 1.5) {
+            // Step 2: Use BFS to simulate eating food and check survival
+            if (simulateEatAndCheckSurvival(pathToFood)) {
                 return nextMove;
             }
         }
     }
     
-    // If no safe path to food, choose direction with maximum survival space
-    const directions = [
-        {x: 0, y: -1}, // Up
-        {x: 1, y: 0},  // Right
-        {x: 0, y: 1},  // Down
-        {x: -1, y: 0}  // Left
-    ];
+    // Step 3: If no safe path to food, use Hamiltonian Cycle strategy
+    const hamiltonianMove = getHamiltonianDirection();
+    if (hamiltonianMove) {
+        return hamiltonianMove;
+    }
     
+    // Final fallback: choose direction with maximum survival space
+    const directions = [{x: 0, y: -1}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}];
     let bestDirection = null;
     let maxSpace = -1;
     
     for (let dir of directions) {
-        // Cannot move in reverse
         if (dir.x === -currentDir.x && dir.y === -currentDir.y) continue;
         
         const testPos = {x: head.x + dir.x, y: head.y + dir.y};
-        
         if (!checkCollision(testPos)) {
             const space = calculateReachableSpace(testPos);
             if (space > maxSpace) {
@@ -409,23 +419,7 @@ function getAutoDirection() {
         }
     }
     
-    // If best direction found, return it
-    if (bestDirection) {
-        return bestDirection;
-    }
-    
-    // Last resort: find any direction that won't immediately collide
-    for (let dir of directions) {
-        if (dir.x === -currentDir.x && dir.y === -currentDir.y) continue;
-        
-        const testPos = {x: head.x + dir.x, y: head.y + dir.y};
-        if (!checkCollision(testPos)) {
-            return dir;
-        }
-    }
-    
-    // If all directions will collide, return current direction (game about to end)
-    return currentDir;
+    return bestDirection || currentDir;
 }
 
 // Toggle auto mode
