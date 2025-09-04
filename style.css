@@ -61,6 +61,11 @@ h1 {
 
 .game-controls {
     margin: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .game-controls button {
@@ -91,6 +96,39 @@ h1 {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 15px;
+}
+
+.speed-control label {
+    font-weight: bold;
+    color: #2d3748;
+    font-size: 1em;
+}
+
+.speed-control select {
+    padding: 8px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: white;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.speed-control select:hover {
+    border-color: #4299e1;
+}
+
+.speed-control select:focus {
+    outline: none;
+    border-color: #3182ce;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
 #pauseBtn {

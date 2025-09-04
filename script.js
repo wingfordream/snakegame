@@ -8,9 +8,14 @@ let gameState = {
     running: false,
     paused: false,
     gameOver: false,
+    autoMode: false,
     score: 0,
-    highScore: localStorage.getItem('snakeHighScore') || 0
+    highScore: localStorage.getItem('snakeHighScore') || 0,
+    gameSpeed: 150
 };
+
+// 游戏循环变量
+let gameInterval = null;
 
 // 蛇的初始状态
 let snake = {
@@ -29,6 +34,8 @@ const scoreElement = document.getElementById('score');
 const highScoreElement = document.getElementById('high-score');
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
+const autoBtn = document.getElementById('autoBtn');
+const speedSelect = document.getElementById('speedSelect');
 
 // 初始化游戏
 function initGame() {
@@ -41,6 +48,7 @@ function initGame() {
     gameState.running = false;
     gameState.paused = false;
     gameState.gameOver = false;
+    gameState.autoMode = false;
     gameState.score = 0;
     
     // 生成新食物
@@ -67,9 +75,150 @@ function isSnakePosition(x, y) {
     return snake.body.some(segment => segment.x === x && segment.y === y);
 }
 
+// 自动寻路算法 - 简单的方向判断
+// 使用BFS寻找到目标的路径
+function findPathBFS(start, target) {
+    const queue = [{pos: start, path: []}];
+    const visited = new Set();
+    visited.add(`${start.x},${start.y}`);
+    
+    const directions = [
+        {x: 0, y: -1}, // 上
+        {x: 1, y: 0},  // 右
+        {x: 0, y: 1},  // 下
+        {x: -1, y: 0}  // 左
+    ];
+    
+    while (queue.length > 0) {
+        const {pos, path} = queue.shift();
+        
+        if (pos.x === target.x && pos.y === target.y) {
+            return path;
+        }
+        
+        for (let dir of directions) {
+            const newPos = {x: pos.x + dir.x, y: pos.y + dir.y};
+            const key = `${newPos.x},${newPos.y}`;
+            
+            if (!visited.has(key) && !checkCollision(newPos)) {
+                visited.add(key);
+                queue.push({pos: newPos, path: [...path, dir]});
+            }
+        }
+    }
+    
+    return null; // 没有找到路径
+}
+
+// 计算某个方向的可达空间大小
+function calculateReachableSpace(startPos) {
+    const visited = new Set();
+    const queue = [startPos];
+    visited.add(`${startPos.x},${startPos.y}`);
+    
+    const directions = [
+        {x: 0, y: -1}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}
+    ];
+    
+    while (queue.length > 0) {
+        const pos = queue.shift();
+        
+        for (let dir of directions) {
+            const newPos = {x: pos.x + dir.x, y: pos.y + dir.y};
+            const key = `${newPos.x},${newPos.y}`;
+            
+            if (!visited.has(key) && !checkCollision(newPos)) {
+                visited.add(key);
+                queue.push(newPos);
+            }
+        }
+    }
+    
+    return visited.size;
+}
+
+function getAutoDirection() {
+    const head = snake.body[0];
+    const currentDir = snake.direction;
+    
+    // 首先尝试使用BFS寻找到食物的路径
+    const pathToFood = findPathBFS(head, food);
+    
+    if (pathToFood && pathToFood.length > 0) {
+        const nextMove = pathToFood[0];
+        
+        // 检查这个移动是否安全（不会反向）
+        if (!(nextMove.x === -currentDir.x && nextMove.y === -currentDir.y)) {
+            // 额外检查：确保移动后仍有足够的生存空间
+            const nextPos = {x: head.x + nextMove.x, y: head.y + nextMove.y};
+            const spaceAfterMove = calculateReachableSpace(nextPos);
+            
+            // 如果移动后的可达空间足够大（至少是蛇身长度的1.5倍），则执行移动
+            if (spaceAfterMove >= snake.body.length * 1.5) {
+                return nextMove;
+            }
+        }
+    }
+    
+    // 如果没有安全路径到食物，选择能提供最大生存空间的方向
+    const directions = [
+        {x: 0, y: -1}, // 上
+        {x: 1, y: 0},  // 右
+        {x: 0, y: 1},  // 下
+        {x: -1, y: 0}  // 左
+    ];
+    
+    let bestDirection = null;
+    let maxSpace = -1;
+    
+    for (let dir of directions) {
+        // 不能反向移动
+        if (dir.x === -currentDir.x && dir.y === -currentDir.y) continue;
+        
+        const testPos = {x: head.x + dir.x, y: head.y + dir.y};
+        
+        if (!checkCollision(testPos)) {
+            const space = calculateReachableSpace(testPos);
+            if (space > maxSpace) {
+                maxSpace = space;
+                bestDirection = dir;
+            }
+        }
+    }
+    
+    // 如果找到了最佳方向，返回它
+    if (bestDirection) {
+        return bestDirection;
+    }
+    
+    // 最后的备选方案：找任何一个不会立即碰撞的方向
+    for (let dir of directions) {
+        if (dir.x === -currentDir.x && dir.y === -currentDir.y) continue;
+        
+        const testPos = {x: head.x + dir.x, y: head.y + dir.y};
+        if (!checkCollision(testPos)) {
+            return dir;
+        }
+    }
+    
+    // 如果所有方向都会碰撞，返回当前方向（游戏即将结束）
+    return currentDir;
+}
+
+// 切换自动模式
+function toggleAutoMode() {
+    gameState.autoMode = !gameState.autoMode;
+    updateButtons();
+}
+
 // 移动蛇
 function moveSnake() {
     if (!gameState.running || gameState.paused) return;
+    
+    // 在自动模式下使用自动寻路
+    if (gameState.autoMode) {
+        snake.nextDirection = getAutoDirection();
+    }
     
     // 更新方向
     snake.direction = {...snake.nextDirection};
@@ -121,6 +270,7 @@ function gameOver() {
     gameState.running = false;
     gameState.paused = false;
     gameState.gameOver = true;
+    stopGameLoop();
     
     // 更新最高分
     if (gameState.score > gameState.highScore) {
@@ -234,23 +384,35 @@ function updateButtons() {
         pauseBtn.textContent = '暂停';
         pauseBtn.disabled = true;
     }
+    
+    // 更新自动按钮状态
+    if (gameState.autoMode) {
+        autoBtn.textContent = '手动模式';
+        autoBtn.style.backgroundColor = '#4CAF50';
+    } else {
+        autoBtn.textContent = '自动模式';
+        autoBtn.style.backgroundColor = '';
+    }
 }
 
 // 开始/继续游戏
 function startGame() {
     if (gameState.paused) {
         gameState.paused = false;
+        startGameLoop();
     } else if (gameState.gameOver) {
         // 游戏结束后重新开始
         initGame();
         gameState.running = true;
         snake.nextDirection = {x: 1, y: 0};
+        startGameLoop();
     } else {
         gameState.running = true;
         // 如果蛇没有方向，设置默认方向
         if (snake.direction.x === 0 && snake.direction.y === 0) {
             snake.nextDirection = {x: 1, y: 0};
         }
+        startGameLoop();
     }
     updateButtons();
 }
@@ -259,6 +421,7 @@ function startGame() {
 function pauseGame() {
     if (gameState.running) {
         gameState.paused = true;
+        stopGameLoop();
         updateButtons();
     }
 }
@@ -281,7 +444,6 @@ function handleKeyPress(event) {
                 startGame();
             } else if (gameState.gameOver) {
                 // 游戏结束状态下，空格键重新开始游戏
-                resetGame();
                 startGame();
             }
         }
@@ -294,28 +456,28 @@ function handleKeyPress(event) {
         case 'ArrowUp':
         case 'w':
         case 'W':
-            if (currentDir.y !== 1) {
+            if (!gameState.autoMode && currentDir.y !== 1) {
                 snake.nextDirection = {x: 0, y: -1};
             }
             break;
         case 'ArrowDown':
         case 's':
         case 'S':
-            if (currentDir.y !== -1) {
+            if (!gameState.autoMode && currentDir.y !== -1) {
                 snake.nextDirection = {x: 0, y: 1};
             }
             break;
         case 'ArrowLeft':
         case 'a':
         case 'A':
-            if (currentDir.x !== 1) {
+            if (!gameState.autoMode && currentDir.x !== 1) {
                 snake.nextDirection = {x: -1, y: 0};
             }
             break;
         case 'ArrowRight':
         case 'd':
         case 'D':
-            if (currentDir.x !== -1) {
+            if (!gameState.autoMode && currentDir.x !== -1) {
                 snake.nextDirection = {x: 1, y: 0};
             }
             break;
@@ -337,13 +499,39 @@ function gameLoop() {
     draw();
 }
 
+// 启动游戏循环
+function startGameLoop() {
+    if (gameInterval) {
+        clearInterval(gameInterval);
+    }
+    gameInterval = setInterval(gameLoop, gameState.gameSpeed);
+}
+
+// 停止游戏循环
+function stopGameLoop() {
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+    }
+}
+
+// 速度变更处理
+function handleSpeedChange() {
+    gameState.gameSpeed = parseInt(speedSelect.value);
+    if (gameState.running && !gameState.paused) {
+        startGameLoop(); // 重新启动游戏循环以应用新速度
+    }
+}
+
 // 事件监听器
 startBtn.addEventListener('click', startGame);
 pauseBtn.addEventListener('click', pauseGame);
+autoBtn.addEventListener('click', toggleAutoMode);
+speedSelect.addEventListener('change', handleSpeedChange);
 document.addEventListener('keydown', handleKeyPress);
 
 // 初始化游戏
 initGame();
 
-// 启动游戏循环
-setInterval(gameLoop, 150); // 每150毫秒更新一次
+// 初始绘制
+draw();
